@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fbf6ee">
+<title>Calendario de Adviento 💌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..800,0..100,0..1;1,9..144,400..800,0..100,0..1&display=swap" rel="stylesheet">
+
+<script>
+/* ============================================================
+   ✏️  EDITA AQUÍ  —  todo lo personalizable está en este bloque
+   ============================================================
+
+   Cómo funciona:
+     1. Abre la puerta del día → ruleta de premios con $200 (saldoInicial).
+     2. Junta $300 (precioFicha) para comprar la ficha del gachapon.
+        En esta ruleta la suerte está de su lado (ver "suerte").
+     3. Gira el gachapon y le sale una cápsula del 1 al 25 que NUNCA se repite.
+        Ese número es el regalo que le toca: tú tienes los regalos marcados del 1 al 25.
+
+   Mesas solo por diversión (no afectan los regalos), cada una con $500 y recargas sin límite:
+     🏴‍☠️ Tragamonedas pirata   🎰 Ruleta   🃏 Blackjack
+
+   Su avance se guarda en el navegador: si cierra la página y vuelve otro día, sigue donde se quedó.
+
+   Para probar en tu compu (solo funciona en localhost, no en GitHub Pages):
+     index.html?prueba=2026-12-10     simula otra fecha
+   Para borrar el avance de ese navegador:
+     index.html?reiniciar=1
+*/
+const CONFIG = {
+  nombre: "mi amor",
+  anio: 2026,
+  firma: "Con todo mi amor, Emiliano",
+
+  capsulas: 25,
+  // Decide en qué día sale cada cápsula. Si la cambias, cambia el orden: hazlo antes de que empiece a jugar.
+  semilla: "nuestra-navidad",
+  textoCapsula: "Busca el regalo marcado con el número {n} 🎁",
+
+  // Ruleta de premios
+  saldoInicial: 200,
+  precioFicha: 300,
+  suerte: 0.75,      // probabilidad de ganar cada giro (en una ruleta real es ~0.47 apostando a rojo)
+
+  // Mesas de diversión
+  saldoJuego: 500
+};
+/* ============================ fin de la edición ============================ */
+</script>
+<script src="js/logica.js"></script>
+<script src="js/ilustraciones.js"></script>
+
+<style>
+  :root{
+    --carbon:#2b2f36; --rojo:#c8303c; --rojo-osc:#9e2230; --coral:#f47c7c; --rosa:#f9d0d0; --durazno:#fcdcc6;
+    --amarillo:#f5c13a; --ocre:#d9951e; --verde:#8cbd2e; --pino:#2c6b3a; --azul:#3aa6c9; --celeste:#b3e1ef;
+    --crema:#fff4e3; --papel:#fbf6ee; --felpa:#1f6b45;
+    --r:8px; --sombra:0 1px 2px rgba(43,47,54,.08),0 6px 16px rgba(43,47,54,.10);
+    --serif:"Fraunces",Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none !important}
+  html,body{min-height:100%}
+  body{
+    font-family:"DM Sans",system-ui,sans-serif;color:var(--carbon);overflow-x:hidden;
+    background:
+      radial-gradient(900px 500px at 10% -10%, #fde9d9 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, #e3f3f8 0%, transparent 55%),
+      var(--papel);
+  }
+  button{font:inherit;color:inherit}
+  #nieve{position:fixed;inset:0;pointer-events:none;z-index:0}
+
+  .contenedor{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:0 18px 56px}
+
+  /* ---------- encabezado ---------- */
+  .cabecera{text-align:center;padding:0 0 30px}
+  .guirnalda{height:42px;margin:0 -18px 18px}
+  .guirnalda svg{width:100%;height:100%;display:block}
+  .eyebrow{display:inline-block;font-size:.72rem;letter-spacing:.3em;text-transform:uppercase;font-weight:700;color:var(--rojo);
+    border:1.5px solid currentColor;border-radius:999px;padding:6px 14px}
+  h1{font-family:var(--serif);font-weight:600;font-variation-settings:"SOFT" 100,"WONK" 1;
+    font-size:clamp(2.2rem,7vw,4rem);line-height:1;margin:16px 0 12px;letter-spacing:-.01em}
+  h1 em{font-style:italic;color:var(--rojo);font-weight:500}
+  .estado{font-size:1rem;color:rgba(43,47,54,.72);min-height:1.4em}
+
+  /* ---------- mosaico ---------- */
+  .mosaico{
+    display:grid;gap:10px;
+    grid-template-columns:repeat(var(--cols,6),1fr);
+    grid-template-rows:repeat(var(--filas,7),1fr);
+    aspect-ratio:var(--cols,6) / var(--filas,7);
+  }
+  @media (max-width:640px){ .mosaico{gap:7px} }
+
+  .pieza{
+    position:relative;overflow:hidden;border:0;padding:0;cursor:pointer;text-align:left;
+    border-radius:var(--r);background:var(--fondo);color:var(--tinta);box-shadow:var(--sombra);
+    transition:transform .25s cubic-bezier(.3,1.4,.5,1),box-shadow .25s;
+    animation:entrar .7s cubic-bezier(.2,1,.3,1) backwards;animation-delay:calc(var(--i,0) * 28ms);
+    -webkit-tap-highlight-color:transparent;
+  }
+  @keyframes entrar{from{opacity:0;transform:translateY(16px) scale(.96)}}
+  .pieza:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(43,47,54,.1),0 14px 28px rgba(43,47,54,.16)}
+  .pieza:focus-visible{outline:3px solid var(--carbon);outline-offset:3px}
+  .pieza .motivo{position:absolute;pointer-events:none;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+  .pieza:hover .motivo{transform:scale(1.06) rotate(-2deg)}
+  .pieza .num{position:absolute;left:9%;top:6%;z-index:1;font-family:var(--serif);font-weight:600;line-height:.95;
+    font-variation-settings:"SOFT" 100,"WONK" 1;font-size:var(--fs);letter-spacing:-.02em}
+
+  .pieza[data-forma=chico]{--fs:clamp(1.45rem,4.6vw,2.6rem)}
+  .pieza[data-forma=chico] .motivo{right:4%;bottom:4%;width:72%;height:72%}
+  .pieza[data-forma=ancho]{--fs:clamp(2rem,6.4vw,3.8rem)}
+  .pieza[data-forma=ancho] .num{top:50%;left:7%;transform:translateY(-50%)}
+  .pieza[data-forma=ancho] .motivo{right:3%;top:6%;width:60%;height:88%}
+  .pieza[data-forma=alto]{--fs:clamp(1.9rem,5.6vw,3.2rem)}
+  .pieza[data-forma=alto] .motivo{left:6%;bottom:4%;width:88%;height:70%}
+  .pieza[data-forma=grande]{--fs:clamp(3rem,11vw,6.4rem)}
+  .pieza[data-forma=grande] .motivo{left:12%;top:14%;width:82%;height:84%}
+
+  /* estados de las puertas */
+  .marca{position:absolute;z-index:2;pointer-events:none}
+  .marca.candado{left:7%;bottom:7%;width:clamp(20px,22%,30px);aspect-ratio:1;border-radius:50%;
+    background:rgba(255,255,255,.82);color:var(--carbon);display:grid;place-items:center}
+  .marca.candado svg{width:56%;height:56%}
+  .pieza.bloqueada{cursor:default}
+  .pieza.bloqueada .motivo{opacity:.92}
+  .marca.etiqueta{left:7%;bottom:7%;background:#fff;color:var(--rojo);font-weight:700;font-size:clamp(.55rem,1.7vw,.7rem);
+    letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:99px;box-shadow:0 3px 8px rgba(0,0,0,.18);
+    animation:flotar 2.4s ease-in-out infinite;white-space:nowrap}
+  @keyframes flotar{50%{transform:translateY(-3px)}}
+  .pieza.disponible{animation:entrar .7s cubic-bezier(.2,1,.3,1) backwards,latir 2.6s ease-in-out .8s infinite;animation-delay:calc(var(--i,0) * 28ms),.8s}
+  @keyframes latir{50%{box-shadow:0 0 0 3px var(--amarillo),0 0 18px 3px rgba(245,193,58,.6),0 10px 24px rgba(43,47,54,.18)}}
+  @media (max-width:640px){
+    .marca.etiqueta{left:auto;bottom:auto;right:6%;top:6%;width:24px;height:24px;padding:0;border-radius:50%;font-size:0;display:grid;place-items:center}
+    .marca.etiqueta::before{content:attr(data-corta);font-size:13px;line-height:1}
+    .marca.candado{width:20px}
+  }
+  .marca.sello{top:6%;right:6%;width:clamp(34px,30%,62px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;align-content:center;
+    background:radial-gradient(circle at 35% 30%,#e2525d,var(--rojo-osc));color:#fff;font-family:var(--serif);font-weight:700;
+    font-size:clamp(.85rem,2.6vw,1.3rem);line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.25),inset 0 0 0 3px rgba(255,255,255,.28);transform:rotate(-8deg)}
+  .marca.sello small{font-family:"DM Sans";font-size:.42em;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.85}
+  .marca.sello.nuevo{animation:estampar .7s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes estampar{from{transform:scale(2.6) rotate(-40deg);opacity:0}}
+  .sacudir{animation:sacudir .45s !important}
+  @keyframes sacudir{0%,100%{transform:none}20%{transform:translateX(-5px) rotate(-1.5deg)}40%{transform:translateX(5px) rotate(1.5deg)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+
+  /* mesas de juego */
+  .pieza.mesa .rotulo{position:absolute;left:8%;bottom:8%;z-index:2;font-family:var(--serif);font-weight:600;
+    font-variation-settings:"SOFT" 100;font-size:clamp(.85rem,2.4vw,1.25rem);line-height:1.05;color:#fff}
+  .pieza.mesa .rotulo small{display:block;font-family:"DM Sans";font-size:.55em;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--amarillo);margin-bottom:2px}
+  .pieza.mesa .motivo{left:15%;top:6%;width:70%;height:66%}
+  .pieza.mesa.slot{background:#1b1410 url("img/pirata.jpg") center 22%/cover}
+  .pieza.mesa.slot::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,12,6,0) 25%,rgba(20,12,6,.85))}
+  .pieza.mesa.slot .rotulo{font-size:clamp(1rem,3vw,1.5rem)}
+  .pieza.mesa.slot .monedas{position:absolute;right:6%;top:8%;z-index:2;font-size:clamp(1rem,3vw,1.6rem);animation:flotar 2s ease-in-out infinite}
+
+  /* ---------- aviso ---------- */
+  .aviso{position:fixed;left:50%;bottom:24px;transform:translate(-50%,30px);opacity:0;z-index:20;
+    background:var(--carbon);color:#fff;padding:12px 18px;border-radius:14px;font-size:.92rem;font-weight:500;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);transition:.35s;width:max-content;max-width:90vw;text-align:center;pointer-events:none}
+  .aviso.visible{opacity:1;transform:translate(-50%,0)}
+
+  footer{text-align:center;margin-top:30px;font-family:var(--serif);font-style:italic;font-size:1.05rem;color:var(--rojo)}
+
+  /* ---------- modal ---------- */
+  dialog{border:0;padding:0;margin:auto;background:transparent;max-width:min(520px,94vw);width:100%;color:var(--carbon)}
+  dialog::backdrop{background:rgba(43,47,54,.62);backdrop-filter:blur(5px)}
+  .carta{--px:28px;--pt:34px;position:relative;background:#fffdf8;border-radius:20px;padding:var(--pt) var(--px) 26px;
+    box-shadow:0 30px 80px rgba(0,0,0,.35);animation:aparecer .5s cubic-bezier(.2,1.2,.4,1);max-height:92vh;overflow:auto;overscroll-behavior:contain}
+  @keyframes aparecer{from{opacity:0;transform:translateY(24px) scale(.96)}}
+  .carta .dia{font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--rojo);font-weight:700}
+  .carta h2{font-family:var(--serif);font-weight:600;font-variation-settings:"SOFT" 100,"WONK" 1;font-size:2rem;line-height:1.05;margin:6px 0 12px}
+  .carta .firma{margin-top:16px;font-family:var(--serif);font-style:italic;color:var(--rojo)}
+  .cerrar{position:absolute;top:12px;right:12px;z-index:6;width:36px;height:36px;border-radius:50%;border:0;cursor:pointer;
+    background:rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(0,0,0,.15);font-size:1.1rem}
+  .cerrar:disabled{opacity:.35;cursor:not-allowed}
+  .panel{display:none}
+  .panel.activo{display:block}
+
+  .boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:12px 20px;
+    font-weight:700;cursor:pointer;background:var(--rojo);color:#fff;transition:transform .15s,opacity .2s}
+  .boton:active{transform:scale(.96)}
+  .boton:disabled{opacity:.4;cursor:not-allowed}
+  .boton.oro{background:linear-gradient(135deg,#f8d77c,#e0a937);color:var(--carbon)}
+  .boton.suave{background:rgba(43,47,54,.07);color:var(--carbon);font-weight:500;padding:10px 14px}
+  .recarga-mini{margin-left:8px;vertical-align:middle;border:1.5px solid var(--rojo);background:#fff;color:var(--rojo);
+    font-family:"DM Sans";font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:99px;cursor:pointer;letter-spacing:.02em}
+
+  .marcador{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:6px 0 8px}
+  .marcador .saldo{font-family:var(--serif);font-size:2rem;font-weight:700;line-height:1}
+  .marcador .saldo small{display:block;font-family:"DM Sans";font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--rojo);margin-bottom:4px}
+  .marcador .meta{text-align:right;font-size:.85rem;color:rgba(43,47,54,.7)}
+  .barra{height:8px;border-radius:99px;background:rgba(43,47,54,.08);overflow:hidden}
+  .barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rojo),var(--amarillo));transition:width .6s}
+  .resultado{text-align:center;min-height:1.6em;font-weight:700;margin:8px 0 2px}
+  .acciones{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .acciones .boton.girar{flex:1;min-width:140px}
+  .mensaje-juego{text-align:center;font-size:.9rem;min-height:1.3em;margin-top:10px;color:var(--rojo)}
+  .caja-oro{margin-top:14px;padding:16px;border-radius:14px;text-align:center;background:linear-gradient(135deg,#fdf0cf,#f7dc96);
+    border:1px dashed var(--ocre);animation:aparecer .5s}
+  .caja-oro p{margin-bottom:10px;font-weight:500}
+  .reglas{margin-top:14px;font-size:.8rem;color:rgba(43,47,54,.65)}
+  .reglas summary{cursor:pointer;font-weight:500}
+  .reglas p{margin-top:6px;line-height:1.5}
+
+  .fichas{display:flex;justify-content:center;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
+  .ficha-btn{width:46px;height:46px;border-radius:50%;cursor:pointer;font-weight:700;font-size:.85rem;color:#fff;
+    border:3px dashed rgba(255,255,255,.75);box-shadow:0 3px 8px rgba(0,0,0,.2);transition:transform .15s}
+  .ficha-btn:active{transform:scale(.92)}
+  .ficha-btn:disabled{opacity:.4}
+  .ficha-btn.sel{transform:translateY(-5px);box-shadow:0 0 0 3px var(--amarillo),0 6px 12px rgba(0,0,0,.25)}
+  .f5{background:#8a8f99}.f10{background:var(--azul)}.f25{background:#2e8b57}.f50{background:var(--rojo)}.f100{background:var(--carbon)}
+
+  /* ---------- ruleta ---------- */
+  #p-ruleta.libre .solo-premio{display:none !important}
+  #p-ruleta:not(.libre) .solo-libre{display:none !important}
+  .rueda-caja{position:relative;width:min(250px,64vw);aspect-ratio:1;margin:18px auto 6px}
+  .rueda-caja canvas{width:100%;height:100%;display:block;border-radius:50%;box-shadow:0 0 0 6px #6b4226,0 0 0 9px var(--amarillo),0 12px 30px rgba(0,0,0,.3)}
+  .rueda{transition:transform 5.2s cubic-bezier(.12,.7,.25,1)}
+  .orbita{position:absolute;inset:0;pointer-events:none;transition:transform 5.2s cubic-bezier(.15,.62,.3,1)}
+  .bola{position:absolute;left:50%;top:50%;width:11px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ccc 60%,#999);box-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .puntero{position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:13px solid var(--amarillo);filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+  .historial{display:flex;justify-content:center;gap:5px;min-height:24px;margin-bottom:10px;flex-wrap:wrap}
+  .historial span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.7rem;font-weight:700;color:#fff}
+  .tablero{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;background:var(--felpa);padding:6px;border-radius:12px}
+  .externas{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:var(--felpa);padding:0 6px 6px;border-radius:0 0 12px 12px;margin-top:-6px}
+  .externas .doc{grid-column:span 2}
+  .celda{position:relative;border:1px solid rgba(255,255,255,.35);border-radius:6px;padding:7px 0;font-weight:700;font-size:.9rem;color:#fff;cursor:pointer;background:transparent}
+  .celda.rojo{background:var(--rojo)}.celda.negro{background:var(--carbon)}.celda.verde{background:#2e8b57}
+  .celda.cero{grid-column:span 3}
+  .celda.ext{background:rgba(255,255,255,.07);font-size:.78rem}
+  .celda.gano{box-shadow:0 0 0 3px var(--amarillo) inset;animation:latido .6s 3}
+  @keyframes latido{50%{filter:brightness(1.45)}}
+  .celda .apuesta{position:absolute;right:-4px;top:-6px;min-width:24px;height:24px;padding:0 4px;border-radius:12px;background:var(--amarillo);color:var(--carbon);
+    font-size:.68rem;display:grid;place-items:center;border:2px dashed #fff;box-shadow:0 2px 5px rgba(0,0,0,.4);z-index:1}
+
+  /* ---------- blackjack ---------- */
+  .mesa-bj{background:radial-gradient(ellipse at 50% 0%,#2a8a5a,#145a3a 75%);border-radius:16px;padding:12px;margin:12px 0 6px;
+    border:4px solid #6b4226;box-shadow:inset 0 0 0 2px rgba(245,193,58,.45),0 8px 20px rgba(0,0,0,.2);color:#fff}
+  .zona{min-height:112px}
+  .zona + .zona{margin-top:10px;border-top:1px dashed rgba(245,193,58,.35);padding-top:10px}
+  .etiqueta{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;color:#fbe7b5;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  .etiqueta span{white-space:nowrap}
+  .etiqueta .tot{background:rgba(0,0,0,.35);color:#fff;border-radius:99px;padding:2px 9px;letter-spacing:0;font-size:.8rem}
+  .etiqueta .tot:empty{display:none}
+  .manos{display:flex;gap:8px}
+  .manos.dos .etiqueta{letter-spacing:.04em;font-size:.62rem}
+  .manos.dos .etiqueta .tot{padding:2px 6px}
+  .mano-j{flex:1;min-width:0;border-radius:12px;padding:6px;transition:background .2s}
+  .mano-j.activa{background:rgba(245,193,58,.16);box-shadow:inset 0 0 0 2px var(--amarillo)}
+  .vacia{color:rgba(255,255,255,.6);font-size:.85rem;text-align:center;padding-top:30px}
+  .cartas{display:flex;min-height:76px}
+  .naipe{position:relative;flex:none;width:52px;height:74px;border-radius:7px;background:#fff;color:var(--carbon);box-shadow:0 2px 6px rgba(0,0,0,.4);font-weight:700;margin-left:-18px}
+  .naipe:first-child{margin-left:0}
+  .manos.dos .naipe{margin-left:-30px}
+  .manos.dos .naipe:first-child{margin-left:0}
+  .naipe .r{position:absolute;left:5px;top:3px;font-size:.85rem;line-height:1}
+  .naipe .p{position:absolute;inset:0;display:grid;place-items:center;font-size:1.55rem}
+  .naipe.roja{color:var(--rojo)}
+  .naipe.oculta{background:repeating-linear-gradient(45deg,var(--rojo-osc) 0 6px,var(--rojo) 6px 12px);border:3px solid #fff}
+  .naipe.oculta span{display:none}
+  .naipe.nueva{animation:repartir .35s cubic-bezier(.2,1,.4,1)}
+  .naipe.voltea{animation:voltea .4s ease-out}
+  @keyframes repartir{from{transform:translate(70px,-50px) rotate(25deg);opacity:0}}
+  @keyframes voltea{from{transform:rotateY(90deg)}}
+  .res-mano{font-size:.72rem;font-weight:700;margin-top:6px;color:#fbe7b5;min-height:1em}
+
+  /* ---------- gachapon ---------- */
+  .gacha{position:relative;width:230px;margin:24px auto 10px;user-select:none}
+  .domo{position:relative;width:210px;height:210px;margin:0 auto -18px;border-radius:50%;overflow:hidden;z-index:1;
+    background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.9) 0 8%,rgba(255,255,255,.2) 22%,rgba(200,230,255,.3) 60%,rgba(120,160,200,.38));
+    border:5px solid var(--amarillo);box-shadow:inset 0 -10px 30px rgba(0,0,0,.12),0 8px 20px rgba(0,0,0,.2)}
+  .domo .capsula{position:absolute;width:34px;height:34px;transition:transform .2s}
+  .capsula{border-radius:50%;border:2px solid rgba(0,0,0,.18);background:linear-gradient(180deg,var(--c) 0 50%,#fff 50% 100%);box-shadow:inset -3px -4px 6px rgba(0,0,0,.14)}
+  .agitando .domo .capsula{animation:agitar .25s infinite alternate}
+  .agitando .domo .capsula:nth-child(2n){animation-duration:.18s;animation-direction:alternate-reverse}
+  .agitando .domo .capsula:nth-child(3n){animation-duration:.22s}
+  @keyframes agitar{from{transform:translate(-4px,3px) rotate(-20deg)}to{transform:translate(5px,-8px) rotate(25deg)}}
+  .cuerpo{position:relative;height:150px;border-radius:22px 22px 14px 14px;background:linear-gradient(160deg,var(--rojo),var(--rojo-osc));border:3px solid var(--amarillo);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+  .cuerpo .letrero{position:absolute;top:26px;left:0;right:0;text-align:center;color:var(--amarillo);font-family:var(--serif);font-weight:700;letter-spacing:.12em;font-size:.85rem}
+  .manija{position:absolute;left:28px;top:56px;width:66px;height:66px;border-radius:50%;cursor:pointer;border:0;background:radial-gradient(circle,#fbe7b5,#e0a937);box-shadow:0 4px 10px rgba(0,0,0,.3);transition:transform 1.2s cubic-bezier(.5,0,.3,1)}
+  .manija::after{content:"";position:absolute;left:50%;top:8px;bottom:8px;width:14px;transform:translateX(-50%);border-radius:8px;background:#8a5a1a}
+  .manija:disabled{cursor:default}
+  .manija.lista{animation:invitar 1.6s ease-in-out infinite}
+  @keyframes invitar{50%{box-shadow:0 0 0 8px rgba(245,193,58,.4),0 4px 10px rgba(0,0,0,.3)}}
+  .salida{position:absolute;right:24px;top:64px;width:72px;height:58px;border-radius:10px 10px 30px 30px;background:#3a0f18;box-shadow:inset 0 6px 12px rgba(0,0,0,.6)}
+  .salida .capsula{position:absolute;left:50%;bottom:6px;width:42px;height:42px;margin-left:-21px;cursor:pointer;display:none}
+  .salida .capsula.lista{display:block;animation:caer .8s cubic-bezier(.3,1.6,.5,1),saltito 1.2s .8s ease-in-out infinite}
+  @keyframes caer{from{transform:translateY(-70px) rotate(-180deg);opacity:0}}
+  @keyframes saltito{50%{transform:translateY(-6px)}}
+  .gacha-texto{text-align:center;margin-top:10px}
+  .gacha-texto .restantes{font-size:.85rem;color:rgba(43,47,54,.6);margin-top:4px}
+  .revelar{text-align:center;padding:4px 0}
+  .gran-capsula{position:relative;width:150px;height:150px;margin:44px auto 26px}
+  .gran-capsula .mitad{position:absolute;left:0;right:0;height:50%;border:3px solid rgba(0,0,0,.14);transition:transform .8s cubic-bezier(.3,1.4,.5,1)}
+  .gran-capsula .arriba{top:0;border-radius:75px 75px 0 0;background:var(--c);border-bottom:0;transform-origin:10% 100%}
+  .gran-capsula .abajo{bottom:0;border-radius:0 0 75px 75px;background:#fff;border-top:0}
+  .gran-capsula .numero{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--serif);font-weight:700;font-variation-settings:"SOFT" 100,"WONK" 1;font-size:4rem;color:var(--rojo);transform:scale(0);transition:transform .6s .35s cubic-bezier(.3,1.6,.5,1)}
+  .gran-capsula.abierta .arriba{transform:translate(-24px,-26px) rotate(-30deg)}
+  .gran-capsula.abierta .abajo{transform:translateY(18px)}
+  .gran-capsula.abierta .numero{transform:scale(1)}
+  .g-titulo{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+  .g-instruccion{line-height:1.5;margin-bottom:16px}
+
+  /* ---------- tragamonedas ---------- */
+  .slot-cabecera{position:relative;margin:calc(var(--pt) * -1) calc(var(--px) * -1) 12px;height:160px;overflow:hidden;border-radius:20px 20px 0 0;background:#1b1410}
+  .slot-cabecera img{width:100%;height:100%;object-fit:cover;object-position:50% 22%;display:block;animation:respirar 9s ease-in-out infinite alternate}
+  @keyframes respirar{to{transform:scale(1.06)}}
+  .slot-cabecera::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,12,6,0) 30%,rgba(20,12,6,.88))}
+  .slot-titulo{position:absolute;left:var(--px);bottom:12px;z-index:1;color:#fff;font-family:var(--serif);font-weight:700;font-variation-settings:"SOFT" 100,"WONK" 1;font-size:1.75rem;line-height:1;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+  .slot-titulo small{display:block;font-family:"DM Sans";font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amarillo);margin-bottom:4px;font-weight:700}
+  .maquina{display:flex;align-items:center;gap:6px;margin:10px 0 6px}
+  .marco{position:relative;flex:1;min-width:0;padding:10px;border-radius:18px;background:linear-gradient(160deg,#7a4a2a,#3d2414);
+    box-shadow:inset 0 0 0 3px #e0a937,inset 0 0 0 6px #3d2414,0 10px 24px rgba(0,0,0,.3)}
+  .marco::before{content:"";position:absolute;inset:5px;border-radius:14px;pointer-events:none;
+    background:radial-gradient(circle,#f8d77c 0 2px,transparent 2.5px) 0 0/24px 24px;opacity:.0}
+  .rodillos{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#24130a;padding:4px;border-radius:10px}
+  .rodillo{position:relative;aspect-ratio:1/3;overflow:hidden;border-radius:6px;background:linear-gradient(180deg,#e2c99a,#fbf0d9 22%,#fff8e8 50%,#fbf0d9 78%,#e2c99a)}
+  .rodillo::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(60,30,10,.38),transparent 20%,transparent 80%,rgba(60,30,10,.38))}
+  .tira{will-change:transform}
+  .tira.borrosa{filter:blur(1.6px)}
+  .sim{aspect-ratio:1;display:grid;place-items:center;font-size:clamp(1.35rem,7.5vw,2.2rem);line-height:1}
+  .sim span{display:block;transition:transform .2s}
+  .sim.gana{background:radial-gradient(circle,rgba(245,193,58,.75),rgba(245,193,58,0) 70%)}
+  .sim.gana span{animation:pulso-sim .7s ease-in-out infinite alternate}
+  @keyframes pulso-sim{to{transform:scale(1.22) rotate(-6deg)}}
+  .s-lineas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .s-lineas polyline{fill:none;stroke:var(--c);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;opacity:.9;
+    filter:drop-shadow(0 0 3px rgba(0,0,0,.55));stroke-dasharray:1000;stroke-dashoffset:1000;animation:trazar .8s ease-out forwards}
+  @keyframes trazar{to{stroke-dashoffset:0}}
+  .palanca{position:relative;flex:none;width:26px;height:170px;border:0;background:none;cursor:pointer}
+  .palanca::before{content:"";position:absolute;left:50%;bottom:8px;width:18px;height:46px;transform:translateX(-50%);border-radius:7px;background:linear-gradient(90deg,#7a4a2a,#c9874a,#7a4a2a);box-shadow:inset 0 0 0 2px #e0a937}
+  .palanca span{position:absolute;left:50%;bottom:44px;width:7px;height:104px;margin-left:-3.5px;border-radius:4px;background:linear-gradient(90deg,#9aa0a8,#f1f3f5,#9aa0a8);transform-origin:50% 100%}
+  .palanca span::after{content:"";position:absolute;left:50%;top:-14px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff9a9a,var(--rojo) 55%,#6e1520);box-shadow:0 2px 5px rgba(0,0,0,.35)}
+  .palanca.jalada span{animation:jalar .7s ease-in-out}
+  @keyframes jalar{45%{transform:scaleY(-.55)}}
+  .palanca:disabled{cursor:default;opacity:.85}
+  .gran-botin{position:absolute;inset:0;z-index:3;border-radius:18px;display:grid;place-items:center;align-content:center;gap:4px;text-align:center;cursor:pointer;
+    background:radial-gradient(circle,rgba(43,20,8,.78),rgba(25,12,4,.94));color:var(--amarillo);animation:botin .6s cubic-bezier(.3,1.6,.5,1)}
+  .gran-botin span{font-family:var(--serif);font-weight:700;font-size:1.7rem;letter-spacing:.04em;text-transform:uppercase;font-variation-settings:"SOFT" 100,"WONK" 1}
+  .gran-botin b{font-family:var(--serif);font-size:2.6rem;color:#fff;text-shadow:0 0 18px rgba(245,193,58,.8)}
+  @keyframes botin{from{transform:scale(.4);opacity:0}}
+  .s-premio{text-align:center;font-weight:700;min-height:1.5em;margin-top:6px}
+  .s-premio.gano{font-family:var(--serif);font-size:1.4rem;color:#2e8b57}
+  .s-detalle{text-align:center;font-size:.8rem;color:rgba(43,47,54,.65);min-height:1.2em}
+  .s-controles{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .s-apuesta{display:flex;align-items:center;gap:6px;background:rgba(43,47,54,.06);border-radius:99px;padding:4px}
+  .s-apuesta button{width:36px;height:36px;border-radius:50%;border:0;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);font-size:1.2rem;cursor:pointer}
+  .s-apuesta button:disabled{opacity:.35;cursor:not-allowed}
+  .s-apuesta div{text-align:center;min-width:58px;line-height:1.05}
+  .s-apuesta small{display:block;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(43,47,54,.6)}
+  .s-apuesta b{font-family:var(--serif);font-size:1.15rem}
+  .s-controles .boton{flex:1}
+  .tabla-slot{width:100%;border-collapse:collapse;margin-top:8px;font-size:.82rem;color:var(--carbon)}
+  .tabla-slot td,.tabla-slot th{padding:4px 6px;text-align:center;border-bottom:1px solid rgba(43,47,54,.08)}
+  .tabla-slot td:nth-child(2){text-align:left}
+  .tabla-slot td small{display:block;font-size:.72rem;color:rgba(43,47,54,.55)}
+  .tabla-slot .e{font-size:1.3rem}
+  .lluvia{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+  .moneda{position:absolute;top:-40px;width:24px;height:24px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff6c4,#f5c13a 45%,#b8860b);box-shadow:inset 0 0 0 2px rgba(140,90,0,.45),0 2px 4px rgba(0,0,0,.25);
+    animation:llover var(--dur) cubic-bezier(.4,.1,.7,1) var(--delay) forwards}
+  .moneda::after{content:"$";position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:.7rem;color:#a06a00}
+  @keyframes llover{to{transform:translate(var(--dx),110vh) rotate(var(--rot))}}
+
+  .confeti{position:fixed;pointer-events:none;z-index:30;width:8px;height:12px;border-radius:2px;animation:confeti 1.3s cubic-bezier(.2,.8,.4,1) forwards}
+  @keyframes confeti{to{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}}
+
+  @media (max-width:420px){
+    .carta{--px:16px;--pt:30px}
+    .celda{font-size:.82rem;padding:6px 0}
+    .ficha-btn{width:42px;height:42px}
+    .acciones .boton{padding:10px 12px}
+    .palanca{width:22px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<canvas id="nieve"></canvas>
+
+<div class="contenedor">
+  <header class="cabecera">
+    <div class="guirnalda" id="guirnalda"></div>
+    <p class="eyebrow" id="eyebrow"></p>
+    <h1>Un regalo cada día,<br><em id="nombre"></em></h1>
+    <p class="estado" id="estado"></p>
+  </header>
+  <main class="mosaico" id="grid" aria-label="Calendario de adviento"></main>
+  <footer id="pie"></footer>
+</div>
+
+<div class="aviso" id="aviso" role="status"></div>
+
+<dialog id="modal">
+  <div class="carta">
+    <button class="cerrar" aria-label="Cerrar">✕</button>
+
+    <!-- RULETA (de premios o libre) -->
+    <section class="panel" id="p-ruleta">
+      <div class="dia" id="r-dia"></div>
+      <h2 id="r-h2"></h2>
+      <div class="marcador">
+        <div class="saldo"><small>Tu saldo</small><span id="r-saldo"></span><button class="recarga-mini solo-libre" id="r-mini" hidden>Recargar a $500</button></div>
+        <div class="meta"><span class="solo-premio">Meta: <strong id="r-meta"></strong><br></span><span id="r-apostado"></span></div>
+      </div>
+      <div class="barra solo-premio"><i id="r-barra"></i></div>
+      <div class="rueda-caja">
+        <canvas id="rueda" class="rueda"></canvas>
+        <div class="orbita" id="orbita"><span class="bola" id="bola"></span></div>
+        <span class="puntero"></span>
+      </div>
+      <div class="resultado" id="r-resultado"></div>
+      <div class="historial" id="r-historial"></div>
+      <div class="caja-oro" id="r-recarga" hidden>
+        <p>Te quedaste sin fichas 🥺</p>
+        <button class="boton oro" id="r-recargar">Recargar 💸</button>
+      </div>
+      <div class="caja-oro solo-premio" id="r-compra" hidden>
+        <p>¡Lo lograste! Ya tienes para la ficha del gachapon ✨</p>
+        <button class="boton oro" id="r-comprar">Comprar ficha 🎟️</button>
+      </div>
+      <div class="fichas" id="r-fichas"></div>
+      <div class="tablero" id="r-tablero"></div>
+      <div class="externas" id="r-externas"></div>
+      <div class="acciones">
+        <button class="boton suave" id="r-deshacer">↶ Deshacer</button>
+        <button class="boton suave" id="r-limpiar">Limpiar</button>
+        <button class="boton girar" id="r-girar">Girar 🎡</button>
+      </div>
+      <div class="mensaje-juego" id="r-msg"></div>
+      <details class="reglas">
+        <summary>¿Cómo se juega?</summary>
+        <p>Ruleta europea (0 al 36). Toca una ficha y luego dónde quieres apostar; puedes poner varias apuestas antes de girar.<br>
+        Número exacto paga 35 a 1 · Docena o columna (2:1) pagan 2 a 1 · Rojo/Negro, Par/Impar, 1-18/19-36 pagan 1 a 1. Si sale el 0, pierden todas las apuestas excepto la del 0.</p>
+      </details>
+    </section>
+
+    <!-- GACHAPON -->
+    <section class="panel" id="p-gacha">
+      <div class="dia" id="g-dia"></div>
+      <h2 id="g-h2">¡Hora del gachapon!</h2>
+      <div id="g-maquina">
+        <div class="gacha" id="gacha">
+          <div class="domo" id="domo"></div>
+          <div class="cuerpo">
+            <div class="letrero">GACHA ♥ AMOR</div>
+            <button class="manija" id="manija" aria-label="Girar la manija"></button>
+            <div class="salida"><span class="capsula" id="cap-salida" role="button" tabindex="0" aria-label="Abrir cápsula"></span></div>
+          </div>
+        </div>
+        <div class="gacha-texto">
+          <p id="g-texto"></p>
+          <p class="restantes" id="g-restantes"></p>
+        </div>
+      </div>
+      <div class="revelar" id="g-revelar" hidden>
+        <div class="gran-capsula" id="gran-capsula">
+          <div class="numero" id="g-numero"></div>
+          <div class="mitad abajo"></div>
+          <div class="mitad arriba"></div>
+        </div>
+        <p class="g-titulo" id="g-titulo"></p>
+        <p class="g-instruccion" id="g-instruccion"></p>
+        <button class="boton oro" id="g-listo">¡Listo! ❤️</button>
+        <p class="firma" id="g-firma"></p>
+      </div>
+    </section>
+
+    <!-- BLACKJACK -->
+    <section class="panel" id="p-bj">
+      <div class="dia">Solo por diversión</div>
+      <h2>Blackjack 🃏</h2>
+      <div class="marcador">
+        <div class="saldo"><small>Tu saldo</small><span id="bj-saldo"></span><button class="recarga-mini" id="bj-mini" hidden>Recargar a $500</button></div>
+        <div class="meta"><span id="bj-apuesta"></span></div>
+      </div>
+      <div class="mesa-bj">
+        <div class="zona">
+          <div class="etiqueta"><span>Crupier</span><span class="tot" id="bj-total-c"></span></div>
+          <div class="cartas" id="bj-crupier"></div>
+        </div>
+        <div class="zona"><div class="manos" id="bj-manos"></div></div>
+      </div>
+      <div class="resultado" id="bj-resultado"></div>
+      <div class="caja-oro" id="bj-recarga" hidden>
+        <p>Te quedaste sin fichas 🥺</p>
+        <button class="boton oro" id="bj-recargar">Recargar $500 💸</button>
+      </div>
+      <div id="bj-apostar">
+        <div class="fichas" id="bj-fichas"></div>
+        <div class="acciones">
+          <button class="boton suave" id="bj-limpiar">Limpiar</button>
+          <button class="boton girar" id="bj-repartir">Repartir 🃏</button>
+        </div>
+      </div>
+      <div class="acciones" id="bj-jugar" hidden>
+        <button class="boton" id="bj-pedir">Pedir</button>
+        <button class="boton suave" id="bj-plantarse">Plantarse</button>
+        <button class="boton suave" id="bj-doblar">Doblar</button>
+        <button class="boton suave" id="bj-dividir">Dividir</button>
+      </div>
+      <details class="reglas">
+        <summary>¿Cómo se juega?</summary>
+        <p>Acércate a 21 sin pasarte y gánale al crupier. Las figuras valen 10 y el As vale 1 u 11.<br>
+        <b>Pedir</b>: otra carta · <b>Plantarse</b>: te quedas así · <b>Doblar</b>: duplicas tu apuesta y recibes solo una carta más · <b>Dividir</b>: si tus dos cartas valen lo mismo, las separas en dos manos.<br>
+        Blackjack (As + 10 en las dos primeras cartas) paga 3 a 2 · Ganar paga 1 a 1 · Empate te devuelve la apuesta. El crupier pide hasta tener 17 o más.</p>
+      </details>
+    </section>
+
+    <!-- TRAGAMONEDAS -->
+    <section class="panel" id="p-slot">
+      <div class="slot-cabecera">
+        <img src="img/pirata.jpg" alt="">
+        <div class="slot-titulo"><small>Solo por diversión</small>El tesoro del capitán</div>
+      </div>
+      <div class="marcador">
+        <div class="saldo"><small>Tu saldo</small><span id="s-saldo"></span><button class="recarga-mini" id="s-mini" hidden>Recargar a $500</button></div>
+        <div class="meta">Último premio<br><strong id="s-ultimo">$0</strong></div>
+      </div>
+      <div class="maquina">
+        <div class="marco" id="s-marco">
+          <div class="rodillos" id="s-rodillos"></div>
+          <svg class="s-lineas" id="s-lineas" aria-hidden="true"></svg>
+          <div class="gran-botin" id="s-gran" hidden><span>¡Gran botín!</span><b id="s-gran-monto"></b></div>
+        </div>
+        <button class="palanca" id="s-palanca" aria-label="Jalar la palanca"><span></span></button>
+      </div>
+      <div class="s-premio" id="s-premio"></div>
+      <div class="s-detalle" id="s-detalle"></div>
+      <div class="s-controles">
+        <div class="s-apuesta">
+          <button id="s-menos" aria-label="Bajar apuesta">−</button>
+          <div><small>Apuesta</small><b id="s-apuesta"></b></div>
+          <button id="s-mas" aria-label="Subir apuesta">+</button>
+        </div>
+        <button class="boton" id="s-girar">¡Girar! ⚓</button>
+      </div>
+      <div class="caja-oro" id="s-recarga" hidden>
+        <p>Se acabó el oro, marinera 🏴‍☠️</p>
+        <button class="boton oro" id="s-recargar">Recargar $500 💸</button>
+      </div>
+      <div class="mensaje-juego" id="s-msg"></div>
+      <details class="reglas">
+        <summary>Tabla de premios</summary>
+        <div id="s-tabla"></div>
+      </details>
+    </section>
+  </div>
+  <div class="lluvia" id="lluvia"></div>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+  const L = window.Logica, I = window.Ilustraciones, P = I.P;
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  // El modo de prueba (cambiar la fecha) solo existe en tu compu, nunca en GitHub Pages.
+  const esLocal = location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || location.hostname.endsWith(".localhost");
+  const modoPrueba = esLocal && params.has("prueba");
+  const sinMovimiento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let rapido = false;
+  const ms = t => (rapido || sinMovimiento()) ? 0 : t;
+  const espera = t => new Promise(r => setTimeout(r, ms(t)));
+  const fmt = n => "$" + Math.round(n).toLocaleString("es-MX");
+
+  // ============================================================
+  //                           FECHA
+  // ============================================================
+  function ahora(){
+    const p = modoPrueba ? params.get("prueba") : null;
+    // ?prueba=2026-12-05 (mediodía) o ?prueba=2026-12-05T23:59 (hora exacta)
+    if (p && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(p)) return new Date(p.length === 10 ? p + "T12:00:00" : p);
+    return new Date();
+  }
+  const hoy = ahora();
+  const fechaDe = d => new Date(CONFIG.anio, 11, d);
+  const abierto = d => L.puertaAbierta(d, hoy, CONFIG.anio);
+  const esHoy = d => L.esHoyDia(d, hoy, CONFIG.anio);
+  const diasPara = f => Math.ceil((f - hoy) / 86400000);
+
+  // ============================================================
+  //                 ESTADO (se guarda en el navegador)
+  // ============================================================
+  const LLAVE = "calendario-adviento-" + CONFIG.anio;
+  if (params.has("reiniciar")) {
+    try { localStorage.removeItem(LLAVE); } catch {}
+    params.delete("reiniciar");
+    history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : ""));
+  }
+  let crudo = null;
+  try { crudo = JSON.parse(localStorage.getItem(LLAVE)); } catch {}
+  const juego = L.normalizarEstado(crudo, CONFIG);
+  const guardar = () => { try { localStorage.setItem(LLAVE, JSON.stringify(juego)); } catch {} };
+  guardar();
+  // Pide al navegador que no borre estos datos por falta de espacio.
+  try {
+    if (navigator.storage && navigator.storage.persist && !/firefox/i.test(navigator.userAgent))
+      navigator.storage.persisted().then(ya => ya || navigator.storage.persist()).catch(() => {});
+  } catch {}
+
+  const ORDEN = L.ordenCapsulas(CONFIG.semilla, CONFIG.capsulas);
+  const numeroDelDia = d => ORDEN[(d - 1) % ORDEN.length];
+  const estadoDia = d => (juego.dias[d] = juego.dias[d] || { etapa: "ruleta", saldo: CONFIG.saldoInicial, historial: [], visto: false });
+  const completo = d => !!(juego.dias[d] && juego.dias[d].visto);
+  const salieron = () => Object.entries(juego.dias).filter(([, v]) => v.etapa === "listo").map(([d]) => numeroDelDia(+d));
+
+  // Si la pestaña quedó abierta y ya cambió el día, se recarga para mostrar la puerta nueva.
+  const diaCargado = ahora().toDateString();
+  const revisarCambioDeDia = () => { if (!modoPrueba && !modal.open && new Date().toDateString() !== diaCargado) location.reload(); };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) revisarCambioDeDia(); });
+  setInterval(revisarCambioDeDia, 60000);
+
+  // ============================================================
+  //                        ENCABEZADO
+  // ============================================================
+  $("nombre").textContent = CONFIG.nombre;
+  $("eyebrow").textContent = "Diciembre " + CONFIG.anio;
+  $("pie").textContent = CONFIG.firma;
+  $("guirnalda").innerHTML = I.guirnalda();
+  function pintarEstado(){
+    const e = $("estado");
+    if (hoy < fechaDe(1)) {
+      const n = diasPara(fechaDe(1));
+      e.textContent = n === 1 ? "Mañana se abre la primera puerta ✨" : `Faltan ${n} días para abrir la primera puerta ✨`;
+      return;
+    }
+    let pendientes = 0;
+    for (let d = 1; d <= 25; d++) if (abierto(d) && !completo(d)) pendientes++;
+    if (pendientes) e.textContent = `Tienes ${pendientes === 1 ? "una puerta" : pendientes + " puertas"} por abrir 🎁`;
+    else if (!abierto(25)) e.textContent = "Vuelve mañana por la siguiente 💌";
+    else e.textContent = "Feliz Navidad ❤️ Todas las puertas están abiertas.";
+  }
+
+  // ============================================================
+  //                          MOSAICO
+  // ============================================================
+  // [fondo, color del número, ilustración]
+  const DIAS = {
+    1: ["carbon", "amarillo", "banderines"], 2: ["azul", "crema", "baston"], 3: ["durazno", "rojo", "taza"],
+    4: ["rosa", "rojo", "rama"], 5: ["verde", "carbon", "carta"], 6: ["pino", "crema", "esferas"],
+    7: ["coral", "crema", "munieco"], 8: ["amarillo", "carbon", "corona"], 9: ["celeste", "pino", "arbol"],
+    10: ["rosa", "azul", "guantes"], 11: ["coral", "crema", "regalo"], 12: ["azul", "amarillo", "estrella"],
+    13: ["verde", "amarillo", "casita"], 14: ["celeste", "carbon", "sueter"], 15: ["durazno", "pino", "acebo"],
+    16: ["verde", "crema", "campana"], 17: ["carbon", "crema", "calceta"], 18: ["azul", "crema", "regalos"],
+    19: ["celeste", "carbon", "nochebuena"], 20: ["rosa", "rojo", "galleta"], 21: ["carbon", "celeste", "copo"],
+    22: ["rosa", "azul", "luces"], 23: ["amarillo", "rojo", "pastelito"], 24: ["verde", "crema", "globo"],
+    25: ["rojo", "crema", "navidad"]
+  };
+  const grid = $("grid");
+  const piezas = {};
+  const svg = contenido => `<svg class="motivo" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${contenido}</svg>`;
+
+  for (let d = 1; d <= 25; d++) {
+    const [fondo, tinta, motivo] = DIAS[d];
+    const b = document.createElement("button");
+    b.className = "pieza puerta";
+    b.dataset.dia = d;
+    b.style.setProperty("--fondo", P[fondo]);
+    b.style.setProperty("--tinta", P[tinta]);
+    b.innerHTML = svg(I.motivos[motivo]()) + `<span class="num">${d}</span><span class="marca"></span>`;
+    b.addEventListener("click", () => tocar(d));
+    piezas[d] = b;
+  }
+  function mesa(id, clase, html, abrir, etiqueta){
+    const b = document.createElement("button");
+    b.className = "pieza mesa " + clase;
+    b.dataset.mesa = id;
+    b.setAttribute("aria-label", etiqueta);
+    b.innerHTML = html;
+    b.addEventListener("click", abrir);
+    piezas[id] = b;
+  }
+  mesa("tragamonedas", "slot", `<span class="rotulo"><small>Tragamonedas</small>El tesoro del capitán</span><span class="monedas" aria-hidden="true">💰</span>`,
+    () => abrirSlot(), "Tragamonedas pirata, solo por diversión");
+  mesa("ruleta", "", svg(I.mesas.ruleta()) + `<span class="rotulo"><small>Jugar</small>Ruleta</span>`, () => abrirRuletaLibre(), "Ruleta, solo por diversión");
+  piezas.ruleta.style.setProperty("--fondo", P.pino);
+  mesa("blackjack", "", svg(I.mesas.blackjack()) + `<span class="rotulo"><small>Jugar</small>Blackjack</span>`, () => abrirBlackjack(), "Blackjack, solo por diversión");
+  piezas.blackjack.style.setProperty("--fondo", P.rojo);
+
+  // En el documento van en orden de lectura del diseño de escritorio
+  Object.entries(L.DISENO.escritorio.piezas)
+    .sort(([, a], [, b]) => a[0] - b[0] || a[1] - b[1])
+    .forEach(([id], i) => { piezas[id].style.setProperty("--i", i); grid.appendChild(piezas[id]); });
+
+  const mqCelular = matchMedia("(max-width: 640px)");
+  function acomodar(){
+    const dis = mqCelular.matches ? L.DISENO.celular : L.DISENO.escritorio;
+    grid.style.setProperty("--cols", dis.columnas);
+    grid.style.setProperty("--filas", dis.filas);
+    for (const [id, pz] of Object.entries(dis.piezas)) {
+      const el = piezas[id];
+      el.style.gridArea = `${pz[0]} / ${pz[1]} / span ${pz[2]} / span ${pz[3]}`;
+      el.dataset.forma = L.formaDe(pz);
+    }
+  }
+  if (mqCelular.addEventListener) mqCelular.addEventListener("change", acomodar); else mqCelular.addListener(acomodar);
+  acomodar();
+
+  function pintarPuerta(d, recien){
+    const b = piezas[d], st = juego.dias[d], marca = b.querySelector(".marca");
+    b.classList.remove("bloqueada", "disponible", "completa", "hoy");
+    if (!abierto(d)) {
+      b.classList.add("bloqueada");
+      marca.className = "marca candado"; marca.innerHTML = I.CANDADO;
+      b.setAttribute("aria-label", `Día ${d}, todavía cerrado`);
+    } else if (completo(d)) {
+      b.classList.add("completa");
+      marca.className = "marca sello" + (recien ? " nuevo" : "");
+      marca.innerHTML = `<small>cápsula</small>${numeroDelDia(d)}`;
+      b.setAttribute("aria-label", `Día ${d}: te salió la cápsula ${numeroDelDia(d)}`);
+    } else {
+      b.classList.add("disponible");
+      if (esHoy(d)) b.classList.add("hoy");
+      marca.className = "marca etiqueta";
+      const casi = st && st.etapa !== "ruleta";
+      marca.textContent = casi ? "¡Ya casi!" : esHoy(d) ? "Hoy ✨" : "¡Ábreme!";
+      marca.dataset.corta = casi ? "🎟️" : esHoy(d) ? "✨" : "🎁";
+      b.setAttribute("aria-label", `Día ${d}, listo para abrir`);
+    }
+  }
+  for (let d = 1; d <= 25; d++) pintarPuerta(d, false);
+  pintarEstado();
+
+  function tocar(d){
+    if (!abierto(d)) {
+      const b = piezas[d];
+      b.classList.remove("sacudir"); void b.offsetWidth; b.classList.add("sacudir");
+      setTimeout(() => b.classList.remove("sacudir"), 500);
+      const n = diasPara(fechaDe(d));
+      avisar(`Paciencia 💌 Esta se abre el ${d} de diciembre` + (n > 0 ? ` (faltan ${n} ${n === 1 ? "día" : "días"})` : ""));
+      return;
+    }
+    abrirDia(d);
+  }
+
+  // ============================================================
+  //                      MODAL / PANELES
+  // ============================================================
+  const modal = $("modal");
+  const btnCerrar = modal.querySelector(".cerrar");
+  let diaActual = null, sesion = 0, ocupado = false, puertaPorAbrir = null;
+
+  function setOcupado(v){ ocupado = v; btnCerrar.disabled = v; }
+  function panel(nombre){
+    ["ruleta", "gacha", "bj", "slot"].forEach(p => $("p-" + p).classList.toggle("activo", p === nombre));
+    modal.querySelector(".carta").scrollTop = 0;
+  }
+  function abrirModal(){ if (!modal.open) modal.showModal(); }
+  function cerrarModal(){ if (!ocupado) modal.close(); }
+  btnCerrar.addEventListener("click", cerrarModal);
+  modal.addEventListener("cancel", e => { if (ocupado) e.preventDefault(); });
+  modal.addEventListener("close", () => {
+    sesion++; setOcupado(false);
+    pintarEstado();
+    if (puertaPorAbrir) {
+      const d = puertaPorAbrir; puertaPorAbrir = null;
+      setTimeout(() => { pintarPuerta(d, true); confeti(piezas[d]); }, 150);
+    }
+  });
+
+  function abrirDia(d){
+    if (!abierto(d)) return;            // segundo candado: nunca se abre un día que no ha llegado
+    sesion++; diaActual = d;
+    const st = estadoDia(d); guardar();
+    if (st.etapa === "ruleta") abrirRuleta("premio");
+    else if (st.etapa === "gacha" || !st.visto) iniciarGacha(d);
+    else mostrarCapsula(d, false);
+    abrirModal();
+  }
+
+  // ============================================================
+  //                          RULETA
+  // ============================================================
+  const HEX = { verde: "#2e8b57", rojo: P.rojo, negro: P.carbon };
+  let modoR = "premio", fichaSel = 10, apuestas = {}, pila = [], girando = false, ruedaRot = 0, orbitaRot = 0, forzadoR = null;
+  const carteraR = () => modoR === "premio" ? estadoDia(diaActual) : juego.practica.ruleta;
+  const recargaR = () => modoR === "premio" ? CONFIG.saldoInicial : CONFIG.saldoJuego;
+  const apostadoR = () => L.totalApostado(apuestas);
+
+  [5, 10, 25, 50, 100].forEach(v => {
+    const b = document.createElement("button");
+    b.className = `ficha-btn f${v}` + (v === fichaSel ? " sel" : "");
+    b.textContent = v;
+    b.setAttribute("aria-label", `Ficha de $${v}`);
+    b.addEventListener("click", () => {
+      fichaSel = v;
+      $("r-fichas").querySelectorAll(".ficha-btn").forEach(x => x.classList.toggle("sel", x === b));
+    });
+    $("r-fichas").appendChild(b);
+  });
+
+  const celdas = {};
+  function celda(padre, clave, texto, clases, etiqueta){
+    const b = document.createElement("button");
+    b.className = "celda " + clases;
+    b.dataset.k = clave;
+    b.textContent = texto;
+    if (etiqueta) b.setAttribute("aria-label", etiqueta);
+    b.addEventListener("click", () => apostar(clave));
+    padre.appendChild(b);
+    celdas[clave] = b;
+  }
+  celda($("r-tablero"), "n:0", "0", "verde cero");
+  for (let fila = 0; fila < 12; fila++) for (let c = 1; c <= 3; c++) { const n = fila * 3 + c; celda($("r-tablero"), "n:" + n, n, L.colorDe(n)); }
+  [1, 2, 3].forEach(c => celda($("r-tablero"), "col" + c, "2:1", "ext", `Columna ${c}`));
+  celda($("r-externas"), "doc1", "1ª 12", "ext doc");
+  celda($("r-externas"), "doc2", "2ª 12", "ext doc");
+  celda($("r-externas"), "doc3", "3ª 12", "ext doc");
+  celda($("r-externas"), "bajo", "1-18", "ext");
+  celda($("r-externas"), "par", "Par", "ext");
+  celda($("r-externas"), "rojo", "◆", "rojo", "Rojo");
+  celda($("r-externas"), "negro", "◆", "negro", "Negro");
+  celda($("r-externas"), "impar", "Impar", "ext");
+  celda($("r-externas"), "alto", "19-36", "ext");
+
+  const msgR = t => { $("r-msg").textContent = t; };
+  const limpiarGanadoras = () => Object.values(celdas).forEach(c => c.classList.remove("gano"));
+
+  function apostar(clave){
+    if (girando) return;
+    const c = carteraR();
+    const libre = c.saldo - apostadoR();
+    if (libre <= 0) return msgR(c.saldo > 0 ? "Ya apostaste todo tu saldo. ¡A girar! 🎡" : "");
+    const monto = Math.min(fichaSel, libre);
+    apuestas[clave] = (apuestas[clave] || 0) + monto;
+    pila.push([clave, monto]);
+    limpiarGanadoras();
+    msgR(monto < fichaSel ? `Solo te alcanzaba para ${fmt(monto)}, lo puse completo.` : "");
+    pintarRuleta();
+  }
+  $("r-deshacer").addEventListener("click", () => {
+    if (girando || !pila.length) return;
+    const [k, m] = pila.pop();
+    apuestas[k] -= m; if (apuestas[k] <= 0) delete apuestas[k];
+    msgR(""); pintarRuleta();
+  });
+  $("r-limpiar").addEventListener("click", () => { if (!girando) { apuestas = {}; pila = []; msgR(""); pintarRuleta(); } });
+  $("r-recargar").addEventListener("click", () => {
+    const c = carteraR();
+    if (girando || c.saldo > 0) return;
+    c.saldo = recargaR(); guardar();
+    msgR("¡Recargado! 💸 Suerte en el siguiente giro"); pintarRuleta();
+  });
+  $("r-mini").addEventListener("click", () => {
+    const c = carteraR();
+    if (girando || modoR !== "libre" || c.saldo >= CONFIG.saldoJuego) return;
+    c.saldo = CONFIG.saldoJuego; guardar();
+    msgR("¡Recargado! 💸"); pintarRuleta();
+  });
+
+  function pintarRuleta(){
+    const c = carteraR(), apostado = apostadoR();
+    $("r-saldo").textContent = girando ? "…" : fmt(c.saldo - apostado);
+    $("r-apostado").textContent = "Apostado: " + fmt(apostado);
+    if (modoR === "premio") {
+      $("r-meta").textContent = fmt(CONFIG.precioFicha);
+      $("r-barra").style.width = Math.min(100, c.saldo / CONFIG.precioFicha * 100) + "%";
+    }
+    for (const [k, el] of Object.entries(celdas)) {
+      let chip = el.querySelector(".apuesta");
+      if (apuestas[k]) {
+        if (!chip) { chip = document.createElement("span"); chip.className = "apuesta"; el.appendChild(chip); }
+        chip.textContent = apuestas[k];
+      } else if (chip) chip.remove();
+    }
+    $("r-girar").disabled = girando || !apostado;
+    $("r-deshacer").disabled = girando || !pila.length;
+    $("r-limpiar").disabled = girando || !apostado;
+    $("r-compra").hidden = !(modoR === "premio" && !girando && c.saldo >= CONFIG.precioFicha);
+    $("r-recarga").hidden = !(!girando && c.saldo <= 0);
+    $("r-recargar").textContent = `Recargar ${fmt(recargaR())} 💸`;
+    $("r-mini").hidden = !(modoR === "libre" && !girando && c.saldo > 0 && c.saldo < CONFIG.saldoJuego);
+    const h = $("r-historial"); h.innerHTML = "";
+    if (!girando) c.historial.slice(-10).forEach(n => {
+      const s = document.createElement("span"); s.textContent = n; s.style.background = HEX[L.colorDe(n)]; h.appendChild(s);
+    });
+  }
+
+  const cv = $("rueda");
+  function dibujarRueda(){
+    const S = cv.clientWidth || 250, dpr = devicePixelRatio || 1;
+    cv.width = S * dpr; cv.height = S * dpr;
+    const x = cv.getContext("2d");
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const c = S / 2, R = c, seg = Math.PI * 2 / 37;
+    L.RUEDA.forEach((n, i) => {
+      const a = -Math.PI / 2 + i * seg;
+      x.beginPath(); x.moveTo(c, c); x.arc(c, c, R, a - seg / 2, a + seg / 2); x.closePath();
+      x.fillStyle = HEX[L.colorDe(n)]; x.fill();
+      x.strokeStyle = "rgba(245,193,58,.6)"; x.lineWidth = 1; x.stroke();
+    });
+    x.fillStyle = "#fff"; x.font = `700 ${Math.round(S * .045)}px "DM Sans",sans-serif`;
+    x.textAlign = "center"; x.textBaseline = "middle";
+    L.RUEDA.forEach((n, i) => { x.save(); x.translate(c, c); x.rotate(i * seg); x.fillText(n, 0, -R * .86); x.restore(); });
+    x.beginPath(); x.arc(c, c, R * .62, 0, Math.PI * 2);
+    const g = x.createRadialGradient(c, c, 0, c, c, R * .62);
+    g.addColorStop(0, "#8a5a33"); g.addColorStop(1, "#3d2414");
+    x.fillStyle = g; x.fill(); x.strokeStyle = P.amarillo; x.lineWidth = 2; x.stroke();
+    x.beginPath(); x.arc(c, c, R * .76, 0, Math.PI * 2); x.strokeStyle = "rgba(245,193,58,.85)"; x.lineWidth = 1.5; x.stroke();
+    x.beginPath(); x.arc(c, c, R * .12, 0, Math.PI * 2); x.fillStyle = P.amarillo; x.fill();
+    for (let k = 0; k < 4; k++) { x.save(); x.translate(c, c); x.rotate(k * Math.PI / 2); x.fillStyle = P.amarillo; x.fillRect(-2, -R * .4, 4, R * .4); x.restore(); }
+  }
+  const radioBola = f => (cv.clientWidth || 250) / 2 * f;
+  function ponerBola(f, animar){
+    const b = $("bola");
+    b.style.transition = animar ? "transform 1.4s cubic-bezier(.5,0,.7,1) 3.6s" : "none";
+    b.style.transform = `translate(-50%,-50%) translateY(${-radioBola(f)}px)`;
+  }
+
+  function abrirRuleta(modo){
+    modoR = modo; apuestas = {}; pila = []; girando = false; setOcupado(false);
+    $("p-ruleta").classList.toggle("libre", modo === "libre");
+    $("r-dia").textContent = modo === "premio" ? `${diaActual} de diciembre` : "Solo por diversión";
+    $("r-h2").textContent = modo === "premio" ? "Gánate tu ficha 🎰" : "Ruleta 🎰";
+    $("r-resultado").textContent = "Elige una ficha y apuesta en el tablero";
+    $("r-resultado").style.color = "";
+    msgR(""); limpiarGanadoras();
+    panel("ruleta");
+    requestAnimationFrame(() => { dibujarRueda(); ponerBola(.69, false); });
+    pintarRuleta();
+  }
+  function abrirRuletaLibre(){ sesion++; diaActual = null; abrirRuleta("libre"); abrirModal(); }
+
+  $("r-girar").addEventListener("click", () => {
+    if (girando || !apostadoR()) return;
+    const c = carteraR(), apostado = apostadoR();
+    const n = forzadoR != null ? forzadoR : L.elegirNumero(apuestas, modoR === "premio" ? CONFIG.suerte : null);
+    forzadoR = null;
+    const ganado = L.pagoTotalRuleta(apuestas, n);
+    const jugadas = { ...apuestas };
+    // Se guarda antes de la animación: recargar la página no cambia el resultado.
+    c.saldo = c.saldo - apostado + ganado;
+    c.historial.push(n); if (c.historial.length > 30) c.historial.shift();
+    guardar();
+
+    girando = true; setOcupado(true);
+    const s = sesion;
+    msgR(""); limpiarGanadoras();
+    $("r-resultado").textContent = "No va más… 🎡"; $("r-resultado").style.color = "";
+    pintarRuleta();
+
+    const segDeg = 360 / 37, i = L.RUEDA.indexOf(n);
+    ruedaRot += 360 * 4 + (((-i * segDeg - ruedaRot) % 360) + 360) % 360;
+    orbitaRot -= 360 * 6;
+    ponerBola(.95, false);
+    void $("bola").offsetWidth;
+    cv.style.transform = `rotate(${ruedaRot}deg)`;
+    $("orbita").style.transform = `rotate(${orbitaRot}deg)`;
+    ponerBola(.69, true);
+
+    setTimeout(() => {
+      if (s !== sesion) return;
+      girando = false; setOcupado(false); apuestas = {}; pila = [];
+      const neto = ganado - apostado;
+      $("r-resultado").textContent = `Salió el ${n} ${L.colorDe(n)} · ` +
+        (ganado ? (neto > 0 ? `¡Ganaste ${fmt(neto)}! 🎉` : neto === 0 ? "Recuperaste tu apuesta" : `Recuperaste ${fmt(ganado)}`) : `Perdiste ${fmt(apostado)}`);
+      $("r-resultado").style.color = neto > 0 ? "#2e8b57" : "var(--rojo)";
+      Object.keys(jugadas).forEach(k => { if (L.pagoRuleta(k, 1, n)) celdas[k].classList.add("gano"); });
+      celdas["n:" + n].classList.add("gano");
+      if (modoR === "premio" && c.saldo >= CONFIG.precioFicha) msgR("¡Ya te alcanza para la ficha! 🎟️ (o puedes seguir jugando)");
+      pintarRuleta();
+    }, ms(5300));
+  });
+
+  $("r-comprar").addEventListener("click", () => {
+    const st = estadoDia(diaActual);
+    if (modoR !== "premio" || girando || st.etapa !== "ruleta" || st.saldo < CONFIG.precioFicha) return;
+    st.saldo -= CONFIG.precioFicha;
+    st.etapa = "gacha";
+    apuestas = {}; pila = [];
+    guardar();
+    pintarPuerta(diaActual, false);
+    iniciarGacha(diaActual);
+  });
+  addEventListener("resize", () => {
+    if (modal.open && $("p-ruleta").classList.contains("activo") && !girando) { dibujarRueda(); ponerBola(.69, false); }
+  });
+
+  // ============================================================
+  //                         GACHAPON
+  // ============================================================
+  const COLORES_CAP = ["#f47c7c", "#f5c13a", "#8cbd2e", "#3aa6c9", "#b38be0", "#f08a24", "#e85a9c"];
+  const colorCapsula = n => COLORES_CAP[(n - 1) % COLORES_CAP.length];
+
+  function iniciarGacha(d){
+    const st = estadoDia(d);
+    $("g-dia").textContent = `${d} de diciembre`;
+    $("g-h2").textContent = "¡Hora del gachapon!";
+    $("g-maquina").hidden = false;
+    $("g-revelar").hidden = true;
+    $("gacha").classList.remove("agitando");
+    const m = $("manija");
+    m.style.transition = "none"; m.style.transform = "none"; void m.offsetWidth; m.style.transition = "";
+    const cap = $("cap-salida"); cap.className = "capsula";
+
+    const fuera = new Set(salieron());
+    const quedan = Array.from({ length: CONFIG.capsulas }, (_, i) => i + 1).filter(n => !fuera.has(n));
+    const domo = $("domo"); domo.innerHTML = "";
+    quedan.forEach((n, i) => {
+      const c = document.createElement("span");
+      c.className = "capsula";
+      c.style.setProperty("--c", colorCapsula(n));
+      const fila = Math.floor(i / 6), col = i % 6;
+      c.style.left = 12 + col * 30 + (fila % 2) * 12 + (Math.random() * 6 - 3) + "px";
+      c.style.top = 160 - fila * 28 + (Math.random() * 6 - 3) + "px";
+      c.style.transform = `rotate(${Math.random() * 360}deg)`;
+      domo.appendChild(c);
+    });
+
+    if (st.etapa === "listo") {             // ya giró la manija pero no ha abierto la cápsula
+      m.disabled = true; m.classList.remove("lista");
+      cap.style.setProperty("--c", colorCapsula(numeroDelDia(d)));
+      cap.className = "capsula lista";
+      $("g-texto").textContent = "Tu cápsula te está esperando 👇 Tócala para abrirla";
+      $("g-restantes").textContent = "";
+    } else {
+      m.disabled = false; m.classList.add("lista");
+      $("g-texto").textContent = "Tu ficha ya está adentro 🎟️ Gira la manija";
+      $("g-restantes").textContent = `Quedan ${quedan.length} de ${CONFIG.capsulas} cápsulas`;
+    }
+    panel("gacha");
+  }
+
+  $("manija").addEventListener("click", () => {
+    const d = diaActual, st = estadoDia(d);
+    if (ocupado || st.etapa !== "gacha") return;
+    const n = numeroDelDia(d);
+    st.etapa = "listo"; st.visto = false;
+    guardar();   // a partir de aquí la cápsula ya es suya
+
+    setOcupado(true);
+    const s = sesion;
+    const m = $("manija");
+    m.disabled = true; m.classList.remove("lista");
+    m.style.transform = "rotate(360deg)";
+    $("gacha").classList.add("agitando");
+    $("g-texto").textContent = "Clac, clac, clac…";
+    $("g-restantes").textContent = "";
+    setTimeout(() => {
+      if (s !== sesion) return;
+      setOcupado(false);
+      $("gacha").classList.remove("agitando");
+      const cap = $("cap-salida");
+      cap.style.setProperty("--c", colorCapsula(n));
+      cap.className = "capsula lista";
+      $("g-texto").textContent = "¡Salió una cápsula! Tócala para abrirla 👇";
+    }, ms(1300));
+  });
+
+  function abrirCapsula(){
+    const st = estadoDia(diaActual);
+    if (ocupado || st.etapa !== "listo" || st.visto) return;
+    st.visto = true; guardar();
+    puertaPorAbrir = diaActual;
+    mostrarCapsula(diaActual, true);
+  }
+  $("cap-salida").addEventListener("click", abrirCapsula);
+  $("cap-salida").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirCapsula(); } });
+
+  function mostrarCapsula(d, nueva){
+    const n = numeroDelDia(d);
+    $("g-dia").textContent = `${d} de diciembre`;
+    $("g-h2").textContent = nueva ? "¡Hora del gachapon!" : "Tu cápsula";
+    $("g-maquina").hidden = true;
+    $("g-revelar").hidden = false;
+    const g = $("gran-capsula");
+    g.style.setProperty("--c", colorCapsula(n));
+    $("g-numero").textContent = n;
+    $("g-titulo").textContent = nueva ? `¡Te salió la cápsula #${n}!` : `Este día te salió la cápsula #${n}`;
+    $("g-instruccion").textContent = CONFIG.textoCapsula.replace("{n}", n);
+    $("g-firma").textContent = d === 25 ? CONFIG.firma : "";
+    g.classList.remove("abierta");
+    requestAnimationFrame(() => requestAnimationFrame(() => g.classList.add("abierta")));
+    panel("gacha");
+  }
+  $("g-listo").addEventListener("click", cerrarModal);
+
+  // ============================================================
+  //                         BLACKJACK
+  // ============================================================
+  const TEXTO_BJ = { pasado: "Te pasaste 😅", blackjack: "¡Blackjack! 🎉", empate: "Empate", bjCrupier: "Blackjack del crupier",
+    crupierPasado: "El crupier se pasó 🎉", gana: "¡Ganaste! 🎉", pierde: "Gana el crupier" };
+  let zapato = [];
+  const sacar = () => { if (!zapato.length) zapato = L.crearZapato(6); return { ...zapato.pop(), nueva: true }; };
+  const textoTotal = cs => { const { t, blanda } = L.totalMano(cs); return blanda && t < 21 ? `${t - 10}/${t}` : String(t); };
+  const carteraBJ = juego.practica.blackjack;
+  const BJ = { fase: "apuesta", apuesta: 0, ultima: 0, manos: [], activa: 0, crupier: [], mostrarOculta: false, ocupado: false, mensaje: "" };
+  const manoActual = () => BJ.manos[BJ.activa];
+  const puedeDoblarBJ = () => { const m = manoActual(); return BJ.fase === "jugando" && !!m && L.puedeDoblar(m, carteraBJ.saldo); };
+  const puedeDividirBJ = () => { const m = manoActual(); return BJ.fase === "jugando" && !!m && L.puedeDividir(m, BJ.manos.length, carteraBJ.saldo); };
+
+  [10, 25, 50, 100].forEach(v => {
+    const b = document.createElement("button");
+    b.className = `ficha-btn f${v}`;
+    b.textContent = v;
+    b.setAttribute("aria-label", `Apostar $${v}`);
+    b.addEventListener("click", () => {
+      if (BJ.fase !== "apuesta" || BJ.ocupado) return;
+      const libre = carteraBJ.saldo - BJ.apuesta;
+      if (libre <= 0) return;
+      BJ.apuesta += Math.min(v, libre);
+      BJ.mensaje = "";
+      pintarBJ();
+    });
+    $("bj-fichas").appendChild(b);
+  });
+  $("bj-limpiar").addEventListener("click", () => { if (BJ.fase === "apuesta" && !BJ.ocupado) { BJ.apuesta = 0; pintarBJ(); } });
+  function recargarBJ(){
+    if (BJ.fase !== "apuesta" || BJ.ocupado || carteraBJ.saldo >= CONFIG.saldoJuego) return;
+    carteraBJ.saldo = CONFIG.saldoJuego; guardar();
+    BJ.mensaje = "¡Recargado! 💸"; pintarBJ();
+  }
+  $("bj-recargar").addEventListener("click", recargarBJ);
+  $("bj-mini").addEventListener("click", recargarBJ);
+
+  function naipe(carta, oculta){
+    const el = document.createElement("div");
+    el.className = "naipe" + (carta.p === "♥" || carta.p === "♦" ? " roja" : "");
+    if (oculta) { el.classList.add("oculta"); carta.tapada = true; el.setAttribute("aria-label", "Carta boca abajo"); }
+    else {
+      if (carta.tapada) { el.classList.add("voltea"); carta.tapada = false; }
+      el.setAttribute("aria-label", carta.r + carta.p);
+    }
+    if (carta.nueva) { el.classList.add("nueva"); carta.nueva = false; }
+    el.innerHTML = `<span class="r">${carta.r}</span><span class="p">${carta.p}</span>`;
+    return el;
+  }
+
+  function pintarBJ(){
+    const enApuesta = BJ.fase === "apuesta";
+    $("bj-saldo").textContent = fmt(carteraBJ.saldo - (enApuesta ? BJ.apuesta : 0));
+    $("bj-apuesta").textContent = "Apuesta: " + fmt(enApuesta ? BJ.apuesta : BJ.manos.reduce((s, m) => s + m.apuesta, 0));
+    const zc = $("bj-crupier"); zc.innerHTML = "";
+    BJ.crupier.forEach((c, i) => zc.appendChild(naipe(c, i === 1 && !BJ.mostrarOculta)));
+    $("bj-total-c").textContent = !BJ.crupier.length ? "" :
+      BJ.mostrarOculta ? textoTotal(BJ.crupier) : (BJ.crupier[0].r === "A" ? "1/11" : String(L.valorCarta(BJ.crupier[0])));
+    const zj = $("bj-manos"); zj.innerHTML = "";
+    zj.classList.toggle("dos", BJ.manos.length > 1);
+    if (!BJ.manos.length) zj.innerHTML = `<div class="mano-j"><div class="vacia">Pon tu apuesta y reparte</div></div>`;
+    BJ.manos.forEach((m, i) => {
+      const div = document.createElement("div");
+      div.className = "mano-j" + (BJ.fase === "jugando" && BJ.manos.length > 1 && i === BJ.activa ? " activa" : "");
+      const et = document.createElement("div");
+      et.className = "etiqueta";
+      et.innerHTML = `<span>${BJ.manos.length > 1 ? "Mano " + (i + 1) : "Tú"} ${fmt(m.apuesta)}</span><span class="tot">${m.cartas.length ? textoTotal(m.cartas) : ""}</span>`;
+      const cs = document.createElement("div"); cs.className = "cartas";
+      m.cartas.forEach(c => cs.appendChild(naipe(c, false)));
+      const r = document.createElement("div"); r.className = "res-mano"; r.textContent = m.resultado || "";
+      div.append(et, cs, r);
+      zj.appendChild(div);
+    });
+    $("bj-apostar").hidden = !enApuesta;
+    $("bj-jugar").hidden = enApuesta;
+    const puede = BJ.fase === "jugando" && !BJ.ocupado;
+    $("bj-pedir").disabled = !puede;
+    $("bj-plantarse").disabled = !puede;
+    $("bj-doblar").disabled = !puede || !puedeDoblarBJ();
+    $("bj-dividir").disabled = !puede || !puedeDividirBJ();
+    $("bj-repartir").disabled = !BJ.apuesta || BJ.ocupado;
+    $("bj-limpiar").disabled = !BJ.apuesta || BJ.ocupado;
+    $("bj-fichas").querySelectorAll("button").forEach(b => b.disabled = BJ.ocupado || carteraBJ.saldo - BJ.apuesta <= 0);
+    $("bj-resultado").textContent = BJ.mensaje;
+    $("bj-recarga").hidden = !(enApuesta && !BJ.ocupado && carteraBJ.saldo <= 0);
+    $("bj-mini").hidden = !(enApuesta && !BJ.ocupado && carteraBJ.saldo > 0 && carteraBJ.saldo < CONFIG.saldoJuego);
+  }
+
+  function cobrar(monto){ carteraBJ.saldo -= monto; carteraBJ.enMano += monto; guardar(); }
+
+  $("bj-repartir").addEventListener("click", async () => {
+    if (BJ.fase !== "apuesta" || BJ.ocupado || !BJ.apuesta || BJ.apuesta > carteraBJ.saldo) return;
+    if (zapato.length < 60) zapato = L.crearZapato(6);
+    const apuesta = BJ.apuesta;
+    cobrar(apuesta);
+    BJ.ultima = apuesta; BJ.apuesta = 0;
+    BJ.manos = [{ cartas: [], apuesta, resultado: "" }];
+    BJ.crupier = []; BJ.mostrarOculta = false; BJ.activa = 0; BJ.mensaje = "";
+    BJ.fase = "jugando"; BJ.ocupado = true;
+    const m = BJ.manos[0];
+    m.cartas.push(sacar()); pintarBJ(); await espera(320);
+    BJ.crupier.push(sacar()); pintarBJ(); await espera(320);
+    m.cartas.push(sacar()); pintarBJ(); await espera(320);
+    BJ.crupier.push(sacar()); pintarBJ(); await espera(400);
+    BJ.ocupado = false;
+    if (L.crupierRevisa(BJ.crupier[0]) && L.esBlackjack(BJ.crupier)) { BJ.mostrarOculta = true; return liquidarBJ(); }
+    if (L.esBlackjack(m.cartas)) { BJ.mostrarOculta = true; return liquidarBJ(); }
+    pintarBJ();
+  });
+
+  async function accion(fn){
+    if (BJ.fase !== "jugando" || BJ.ocupado) return;
+    BJ.ocupado = true; pintarBJ();
+    try { await fn(); } finally { BJ.ocupado = false; pintarBJ(); }
+  }
+  async function siguienteMano(){
+    BJ.activa++;
+    if (BJ.activa >= BJ.manos.length) return turnoCrupier();
+    pintarBJ();
+    if (L.totalMano(manoActual().cartas).t >= 21) { await espera(300); return siguienteMano(); }
+  }
+  $("bj-pedir").addEventListener("click", () => accion(async () => {
+    const m = manoActual();
+    m.cartas.push(sacar()); pintarBJ(); await espera(380);
+    if (L.totalMano(m.cartas).t >= 21) await siguienteMano();
+  }));
+  $("bj-plantarse").addEventListener("click", () => accion(siguienteMano));
+  $("bj-doblar").addEventListener("click", () => accion(async () => {
+    if (!puedeDoblarBJ()) return;
+    const m = manoActual();
+    cobrar(m.apuesta); m.apuesta *= 2;
+    m.cartas.push(sacar()); pintarBJ(); await espera(450);
+    await siguienteMano();
+  }));
+  $("bj-dividir").addEventListener("click", () => accion(async () => {
+    if (!puedeDividirBJ()) return;
+    const m = manoActual();
+    cobrar(m.apuesta);
+    const [a, b] = m.cartas, ases = a.r === "A";
+    BJ.manos = [{ cartas: [a], apuesta: m.apuesta, resultado: "" }, { cartas: [b], apuesta: m.apuesta, resultado: "" }];
+    BJ.activa = 0;
+    pintarBJ(); await espera(300);
+    BJ.manos[0].cartas.push(sacar()); pintarBJ(); await espera(380);
+    BJ.manos[1].cartas.push(sacar()); pintarBJ(); await espera(380);
+    if (ases) { BJ.activa = BJ.manos.length; return turnoCrupier(); }   // ases divididos: una carta cada uno
+    if (L.totalMano(BJ.manos[0].cartas).t >= 21) await siguienteMano();
+  }));
+  async function turnoCrupier(){
+    BJ.fase = "crupier"; BJ.mostrarOculta = true;
+    pintarBJ(); await espera(650);
+    if (BJ.manos.some(m => L.totalMano(m.cartas).t <= 21))
+      while (L.crupierPide(BJ.crupier)) { BJ.crupier.push(sacar()); pintarBJ(); await espera(650); }
+    liquidarBJ();
+  }
+  function liquidarBJ(){
+    const r = L.liquidarBlackjack(BJ.manos, BJ.crupier), dividida = BJ.manos.length > 1;
+    BJ.manos.forEach((m, i) => { m.resultado = TEXTO_BJ[r.manos[i].resultado]; });
+    carteraBJ.saldo += r.pagado; carteraBJ.enMano = 0; guardar();
+    const cifra = r.neto > 0 ? ` · +${fmt(r.neto)}` : r.neto < 0 ? ` · −${fmt(-r.neto)}` : dividida ? " · quedas igual" : " · recuperas tu apuesta";
+    BJ.mensaje = (dividida ? "Resultado" : BJ.manos[0].resultado) + cifra;
+    if (!dividida) BJ.manos[0].resultado = "";
+    BJ.fase = "apuesta";
+    BJ.apuesta = Math.min(BJ.ultima, carteraBJ.saldo);
+    pintarBJ();
+  }
+  function abrirBlackjack(){
+    sesion++; diaActual = null; setOcupado(false);
+    if (BJ.fase === "apuesta" && !BJ.manos.length) BJ.mensaje = "";
+    panel("bj"); pintarBJ(); abrirModal();
+  }
+
+  // ============================================================
+  //                       TRAGAMONEDAS
+  // ============================================================
+  const carteraS = juego.practica.tragamonedas;
+  const SL = { girando: false, paradas: L.girarRodillos(), forzado: null, idGiro: 0, ultimo: 0, pendiente: 0 };
+  const COLORES_LINEA = ["#f5c13a", "#ff6b6b", "#4dd0e1", "#9ccc65", "#ba68c8", "#ffb74d", "#4fc3f7", "#f06292", "#aed581", "#fff176"];
+  const tirasEl = [];
+  for (let c = 0; c < 5; c++) {
+    const r = document.createElement("div"); r.className = "rodillo";
+    const t = document.createElement("div"); t.className = "tira";
+    r.appendChild(t); $("s-rodillos").appendChild(r); tirasEl.push(t);
+  }
+  const simHTML = s => `<div class="sim" data-s="${s}"><span>${L.SIMBOLOS[s].emoji}</span></div>`;
+  function mostrarVentana(paradas){
+    const v = L.ventana(paradas);
+    tirasEl.forEach((t, c) => { t.style.transition = "none"; t.style.transform = "translateY(0)"; t.classList.remove("borrosa"); t.innerHTML = v[c].map(simHTML).join(""); });
+  }
+  function animarRodillos(desde, hasta){
+    const id = ++SL.idGiro, largo = L.TIRAS[0].length;
+    const H = (tirasEl[0].parentElement.clientHeight / 3) || 60;
+    return Promise.all(tirasEl.map((t, c) => new Promise(res => {
+      const fin = () => {
+        if (id === SL.idGiro) {
+          t.style.transition = "none"; t.style.transform = "translateY(0)"; t.classList.remove("borrosa");
+          t.innerHTML = L.ventana(hasta)[c].map(simHTML).join("");
+        }
+        res();
+      };
+      const dur = ms(1150 + c * 330);
+      if (!dur) return fin();
+      // Una tira con los símbolos reales del rodillo, desde lo que se ve ahora hasta donde va a parar
+      const dist = ((desde[c] - hasta[c]) % largo + largo) % largo;
+      const N = 4 + dist + (1 + c) * largo, inicio = hasta[c] - 1;
+      let html = "";
+      for (let k = 0; k < N; k++) html += simHTML(L.TIRAS[c][((inicio + k) % largo + largo) % largo]);
+      t.style.transition = "none";
+      t.innerHTML = html;
+      t.style.transform = `translateY(${-(N - 3) * H}px)`;
+      void t.offsetHeight;
+      t.classList.add("borrosa");
+      t.style.transition = `transform ${dur}ms cubic-bezier(.18,.84,.32,1.06)`;
+      t.style.transform = `translateY(${-H}px)`;
+      setTimeout(() => { if (id === SL.idGiro) t.classList.remove("borrosa"); }, dur - 280);
+      setTimeout(fin, dur + 60);
+    })));
+  }
+
+  function limpiarPremioSlot(){
+    $("s-lineas").innerHTML = "";
+    $("s-premio").textContent = ""; $("s-premio").className = "s-premio";
+    $("s-detalle").textContent = "";
+    $("s-gran").hidden = true;
+  }
+  function dibujarLineas(lineas){
+    const svgEl = $("s-lineas"), marco = $("s-marco").getBoundingClientRect();
+    svgEl.setAttribute("viewBox", `0 0 ${marco.width} ${marco.height}`);
+    svgEl.innerHTML = lineas.map((l, i) => {
+      const pts = L.LINEAS[l.linea].map((f, c) => {
+        const r = tirasEl[c].children[f].getBoundingClientRect();
+        return `${(r.left + r.width / 2 - marco.left).toFixed(1)},${(r.top + r.height / 2 - marco.top).toFixed(1)}`;
+      }).join(" ");
+      return `<polyline points="${pts}" pathLength="1000" style="--c:${COLORES_LINEA[l.linea]};animation-delay:${i * 140}ms"/>`;
+    }).join("");
+  }
+  function contar(el, total, plantilla){
+    const t0 = performance.now(), dur = ms(800);
+    const paso = t => {
+      const k = dur ? Math.min(1, (t - t0) / dur) : 1;
+      el.textContent = plantilla(fmt(total * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  }
+  function lluviaMonedas(n){
+    if (sinMovimiento()) return;
+    const cont = $("lluvia");
+    for (let i = 0; i < n; i++) {
+      const m = document.createElement("span");
+      m.className = "moneda";
+      m.style.left = Math.random() * 100 + "%";
+      m.style.setProperty("--dx", (Math.random() * 120 - 60) + "px");
+      m.style.setProperty("--rot", (Math.random() * 900 - 450) + "deg");
+      m.style.setProperty("--dur", (1.6 + Math.random() * 1.4) + "s");
+      m.style.setProperty("--delay", (Math.random() * .8) + "s");
+      cont.appendChild(m);
+      setTimeout(() => m.remove(), 4000);
+    }
+  }
+  function granBotin(monto){
+    $("s-gran-monto").textContent = fmt(monto);
+    $("s-gran").hidden = false;
+    clearTimeout(SL.tGran);
+    SL.tGran = setTimeout(() => { $("s-gran").hidden = true; }, 3200);   // tiempo para leerlo, aunque no haya animaciones
+  }
+  $("s-gran").addEventListener("click", () => { $("s-gran").hidden = true; });
+
+  function mostrarPremioSlot(res, apuesta){
+    const pos = new Set();
+    res.lineas.forEach(l => l.posiciones.forEach(([c, f]) => pos.add(c + "," + f)));
+    if (res.botin) res.botin.posiciones.forEach(([c, f]) => pos.add(c + "," + f));
+    pos.forEach(k => { const [c, f] = k.split(",").map(Number); tirasEl[c].children[f].classList.add("gana"); });
+    dibujarLineas(res.lineas);
+    const premio = $("s-premio");
+    if (!res.total) {
+      premio.className = "s-premio";
+      premio.textContent = L.elegir(["Nada esta vez… ¡otra! 🏴‍☠️", "El mar está tranquilo hoy 🌊", "Ni una moneda… ¡sigue buscando! 🗺️"]);
+      return;
+    }
+    premio.className = "s-premio gano";
+    contar(premio, res.total, txt => `¡Ganaste ${txt}!`);
+    const partes = res.lineas.map(l => `${l.cuenta} × ${L.SIMBOLOS[l.simbolo].emoji}`);
+    if (res.botin) partes.push(`${res.botin.cuenta} × ${L.SIMBOLOS.S.emoji} botín`);
+    $("s-detalle").textContent = partes.join(" · ");
+    const mult = res.total / apuesta;
+    if (mult >= 5) lluviaMonedas(Math.min(45, 10 + Math.round(mult * 1.5)));
+    if (mult >= 20) granBotin(res.total);
+  }
+
+  function pintarSlot(){
+    const w = carteraS, i = L.APUESTAS_SLOT.indexOf(w.apuesta), min = L.APUESTAS_SLOT[0];
+    $("s-saldo").textContent = fmt(w.saldo - SL.pendiente);
+    $("s-apuesta").textContent = fmt(w.apuesta);
+    $("s-ultimo").textContent = fmt(SL.ultimo);
+    const bloqueado = SL.girando || w.saldo < w.apuesta;
+    $("s-girar").disabled = bloqueado;
+    $("s-palanca").disabled = bloqueado;
+    $("s-menos").disabled = SL.girando || i <= 0;
+    $("s-mas").disabled = SL.girando || i >= L.APUESTAS_SLOT.length - 1;
+    $("s-recarga").hidden = SL.girando || w.saldo >= min;
+    $("s-mini").hidden = SL.girando || w.saldo < min || w.saldo >= CONFIG.saldoJuego;
+    $("s-msg").textContent = !SL.girando && w.saldo >= min && w.saldo < w.apuesta ? "No te alcanza para esa apuesta: bájala o recarga 💸" : "";
+  }
+  function cambiarApuestaSlot(paso){
+    if (SL.girando) return;
+    const lista = L.APUESTAS_SLOT, i = lista.indexOf(carteraS.apuesta);
+    carteraS.apuesta = lista[Math.max(0, Math.min(lista.length - 1, i + paso))];
+    guardar(); pintarSlot();
+  }
+  $("s-menos").addEventListener("click", () => cambiarApuestaSlot(-1));
+  $("s-mas").addEventListener("click", () => cambiarApuestaSlot(1));
+  function recargarSlot(){
+    if (SL.girando || carteraS.saldo >= CONFIG.saldoJuego) return;
+    carteraS.saldo = CONFIG.saldoJuego; guardar(); pintarSlot();
+    $("s-premio").className = "s-premio"; $("s-premio").textContent = "¡Cofre lleno otra vez! 💸";
+  }
+  $("s-recargar").addEventListener("click", recargarSlot);
+  $("s-mini").addEventListener("click", recargarSlot);
+
+  async function girarSlot(){
+    const w = carteraS;
+    if (SL.girando || w.saldo < w.apuesta) return;
+    const apuesta = w.apuesta, desde = SL.paradas;
+    const hasta = SL.forzado || L.girarRodillos();
+    SL.forzado = null;
+    const res = L.evaluarTiro(L.ventana(hasta), apuesta);
+    // Se guarda antes de animar: recargar la página no cambia el resultado.
+    w.saldo = w.saldo - apuesta + res.total; guardar();
+    SL.paradas = hasta; SL.pendiente = res.total; SL.girando = true; setOcupado(true);
+    const s = sesion;
+    limpiarPremioSlot();
+    pintarSlot();
+    const p = $("s-palanca"); p.classList.remove("jalada"); void p.offsetWidth; p.classList.add("jalada");
+    await animarRodillos(desde, hasta);
+    if (s !== sesion) return;
+    SL.girando = false; SL.pendiente = 0; SL.ultimo = res.total; setOcupado(false);
+    mostrarPremioSlot(res, apuesta);
+    pintarSlot();
+  }
+  $("s-girar").addEventListener("click", girarSlot);
+  $("s-palanca").addEventListener("click", girarSlot);
+
+  $("s-tabla").innerHTML = (() => {
+    const x = v => "×" + (v / 10).toLocaleString("es-MX");
+    const filas = Object.keys(L.TABLA).map(s => {
+      const t = L.TABLA[s], info = L.SIMBOLOS[s];
+      return `<tr><td class="e">${info.emoji}</td><td>${info.nombre}${info.nota ? `<small>${info.nota}</small>` : ""}</td><td>${x(t[3])}</td><td>${x(t[4])}</td><td>${x(t[5])}</td></tr>`;
+    }).join("");
+    const b = L.TABLA_BOTIN;
+    return `<p>Junta 3 o más iguales de izquierda a derecha en cualquiera de las ${L.LINEAS.length} líneas. Los premios multiplican tu apuesta.</p>
+      <table class="tabla-slot"><thead><tr><th></th><th></th><th>3</th><th>4</th><th>5</th></tr></thead><tbody>${filas}
+      <tr><td class="e">${L.SIMBOLOS.S.emoji}</td><td>Botín<small>${L.SIMBOLOS.S.nota}</small></td><td>×${b[3]}</td><td>×${b[4]}</td><td>×${b[5]}</td></tr></tbody></table>`;
+  })();
+
+  function abrirSlot(){
+    sesion++; diaActual = null; setOcupado(false);
+    SL.girando = false; SL.pendiente = 0;
+    panel("slot");
+    mostrarVentana(SL.paradas);
+    limpiarPremioSlot();
+    pintarSlot();
+    abrirModal();
+  }
+
+  // ============================================================
+  //                          EXTRAS
+  // ============================================================
+  let tAviso;
+  function avisar(txt){
+    const el = $("aviso");
+    el.textContent = txt; el.classList.add("visible");
+    clearTimeout(tAviso); tAviso = setTimeout(() => el.classList.remove("visible"), 2600);
+  }
+  function confeti(el){
+    if (sinMovimiento()) return;
+    const r = el.getBoundingClientRect(), cols = [P.rojo, P.amarillo, P.verde, P.azul, P.coral];
+    for (let i = 0; i < 26; i++) {
+      const c = document.createElement("span");
+      c.className = "confeti";
+      c.style.background = cols[i % cols.length];
+      c.style.left = r.left + r.width / 2 + "px";
+      c.style.top = r.top + r.height / 2 + "px";
+      const ang = Math.random() * Math.PI * 2, dist = 50 + Math.random() * 110;
+      c.style.setProperty("--dx", Math.cos(ang) * dist + "px");
+      c.style.setProperty("--dy", Math.sin(ang) * dist - 30 + "px");
+      c.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 1400);
+    }
+  }
+
+  // Nieve suave
+  const cn = $("nieve"), ctx = cn.getContext("2d");
+  let copos = [];
+  function medir(){
+    cn.width = innerWidth * devicePixelRatio; cn.height = innerHeight * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    copos = Array.from({ length: Math.min(70, Math.floor(innerWidth / 14)) }, () => ({
+      x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+      r: Math.random() * 2.2 + .8, v: Math.random() * .5 + .2, o: Math.random() * Math.PI * 2
+    }));
+  }
+  function caer(){
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ctx.fillStyle = "rgba(58,166,201,.22)";
+    for (const p of copos) {
+      p.y += p.v; p.o += .01; p.x += Math.sin(p.o) * .3;
+      if (p.y > innerHeight + 5) { p.y = -5; p.x = Math.random() * innerWidth; }
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    requestAnimationFrame(caer);
+  }
+  if (!sinMovimiento()) { medir(); addEventListener("resize", medir); caer(); }
+
+  // Ganchos para las pruebas automáticas (solo en localhost con ?prueba=...)
+  if (modoPrueba) window.__adviento = {
+    L, CONFIG, LLAVE, juego, ORDEN, BJ, SL,
+    numeroDelDia,
+    rapido: v => { rapido = !!v; },
+    forzarRuleta: n => { forzadoR = n; },
+    forzarRodillos: p => { SL.forzado = p; },
+    apilar: cartas => { zapato = L.crearZapato(6); zapato.push(...cartas.slice().reverse()); },
+    guardado: () => JSON.parse(localStorage.getItem(LLAVE))
+  };
+})();
+</script>
+</body>
+</html>
